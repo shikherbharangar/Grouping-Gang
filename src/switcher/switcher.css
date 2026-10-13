@@ -1,0 +1,147 @@
+@import '../design/base.css';
+body {
+  width: 400px;
+}
+.switcher {
+  padding: 20px 20px 8px;
+  animation: enter var(--enter) var(--ease);
+}
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--text);
+}
+.wordmark .wordmark-period {
+  display: inline;
+  color: var(--accent);
+}
+.shortcut-note {
+  text-align: right;
+  display: grid;
+  gap: 8px;
+}
+.shortcut-note .eyebrow {
+  font-size: 10px;
+  color: var(--secondary);
+  letter-spacing: 0.03em;
+}
+.shortcut-note kbd {
+  font-size: 11px;
+  color: var(--accent);
+}
+.source {
+  padding: 16px 0 12px;
+}
+.source-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.source p {
+  font-size: 12px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slots {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.slot {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  height: 36px;
+  padding: 3px 8px 3px 0;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+}
+.slot:hover {
+  background: var(--selection);
+  border-color: transparent;
+}
+.slot.selected {
+  background: var(--selection);
+}
+.slot.selected .number {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.slot:focus-visible {
+  outline-offset: 0;
+}
+.slot .number {
+  border-color: transparent;
+  font-size: 14px;
+}
+.slot-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.slot-state {
+  color: var(--secondary);
+  font-size: 10px;
+}
+.slot.empty {
+  color: var(--secondary);
+}
+.slot.empty .dot {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+.slot.empty .slot-state {
+  font:
+    16px 'Paper Mono',
+    monospace;
+}
+.slot[data-state='missing'] .dot {
+  background: transparent;
+  border: 1px solid var(--group-color);
+}
+.slot[data-state='ambiguous'] .slot-state {
+  color: var(--danger);
+}
+#status:not(:empty) {
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  background: var(--selection);
+  border-radius: 3px;
+}
+#status.error {
+  background: var(--danger-bg);
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.key-hints {
+  color: var(--secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.key-hints kbd {
+  font-size: 10px;
+}
+footer button {
+  padding: 8px 0 8px 8px;
+  font-size: 11px;
+}
+.dialog {
+  padding: 20px;
+}

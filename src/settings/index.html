@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Grouping Gang — Settings</title>
+  </head>
+  <body>
+    <div class="page">
+      <header class="settings-header">
+        <h1 class="wordmark">GROUPING<span>GANG.</span></h1>
+        <span class="eyebrow secondary">A little order.<br />A lot less dragging.</span
+        ><span id="version" class="version mono">v1.0.0</span>
+      </header>
+      <main>
+        <div class="page-intro">
+          <div>
+            <p class="eyebrow secondary">Your browser, by number</p>
+            <h2>Everything in<br />its place.</h2>
+          </div>
+          <p>Ten steady destinations.<br />One shortcut to get there.</p>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+        <section class="section destinations-section" aria-labelledby="destinations-heading">
+          <div class="section-intro">
+            <span class="section-index mono">01 /</span>
+            <h3 id="destinations-heading">Destinations</h3>
+            <p>
+              Assign an open group to a number. The number stays yours, even when the group closes.
+            </p>
+            <p id="registry-summary" class="mono small"></p>
+            <button id="refresh" class="quiet refresh">Refresh groups ↻</button>
+          </div>
+          <div>
+            <p id="empty-hint" class="empty-hint" hidden>
+              Create a tab group in Brave, then choose <strong>Assign group</strong> below. Nothing
+              is assigned automatically.
+            </p>
+            <div id="assignments" class="assignments" aria-label="Destination assignments"></div>
+            <p class="table-note secondary">
+              Moving to a collapsed group opens it. Moving between windows follows the destination.
+            </p>
+          </div>
+        </section>
+        <section class="section" aria-labelledby="appearance-heading">
+          <div class="section-intro">
+            <span class="section-index mono">02 /</span>
+            <h3 id="appearance-heading">Appearance</h3>
+            <p>A quiet surface, day or night.</p>
+          </div>
+          <div class="appearance-options" role="group" aria-label="Appearance">
+            <button data-theme-choice="system">
+              <span class="theme-swatch system-swatch" aria-hidden="true"></span><span>System</span
+              ><small>Follow your Mac</small></button
+            ><button data-theme-choice="light">
+              <span class="theme-swatch light-swatch" aria-hidden="true"></span><span>Light</span
+              ><small>Warm paper</small></button
+            ><button data-theme-choice="dark">
+              <span class="theme-swatch dark-swatch" aria-hidden="true"></span><span>Dark</span
+              ><small>After hours</small>
+            </button>
+          </div>
+        </section>
+        <section class="section" aria-labelledby="shortcut-heading">
+          <div class="section-intro">
+            <span class="section-index mono">03 /</span>
+            <h3 id="shortcut-heading">The short way</h3>
+            <p>Open. Press a number. Carry on.</p>
+          </div>
+          <div class="shortcut-settings">
+            <kbd id="shortcut">Checking shortcut…</kbd>
+            <p class="secondary">
+              Opens Grouping Gang while Brave is focused. Change it at
+              <code>brave://extensions/shortcuts</code>.
+            </p>
+            <button id="shortcuts">Open shortcut settings</button>
+            <p class="secondary small">
+              If Brave blocks the link, enter the address above in a new tab. A blank shortcut means
+              the combination is unavailable; choose another there.
+            </p>
+          </div>
+        </section>
+        <section class="section maintenance" aria-labelledby="maintenance-heading">
+          <div class="section-intro">
+            <span class="section-index mono">04 /</span>
+            <h3 id="maintenance-heading">Keep it local</h3>
+            <p>No accounts. No analytics.<br />No browsing history saved.</p>
+          </div>
+          <div>
+            <p class="secondary">
+              Assignments and appearance live in this browser profile. Group and tab IDs are used
+              only to keep destinations connected.
+            </p>
+            <details>
+              <summary>Reset & diagnostics</summary>
+              <p id="diagnostics" class="secondary small"></p>
+              <p class="secondary small">
+                Reset clears assignments and appearance. Your browser tabs and groups remain open. A
+                local copy of the previous registry is retained for troubleshooting.
+              </p>
+              <button id="reset" class="danger">Reset Grouping Gang…</button>
+            </details>
+          </div>
+        </section>
+      </main>
+      <footer class="settings-footer">
+        <span class="wordmark-mini mono">GG.</span
+        ><span>Less searching. More where you left off.</span
+        ><span class="mono">Made for the keyboard.</span>
+      </footer>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

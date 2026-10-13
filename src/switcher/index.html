@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Grouping Gang — Switcher</title>
+  </head>
+  <body>
+    <main class="switcher">
+      <header class="masthead">
+        <h1 class="wordmark">
+          GROUPING<span>GANG<span class="wordmark-period" aria-hidden="true">.</span></span>
+        </h1>
+        <div class="shortcut-note">
+          <span class="eyebrow">Make your move</span><kbd id="shortcut">···</kbd>
+        </div>
+      </header>
+      <div class="source">
+        <span class="source-label">Send this tab</span>
+        <p id="tab-title" class="secondary" title="">Loading browser state…</p>
+      </div>
+      <div id="slots" class="slots" role="group" aria-label="Numbered destinations"></div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <footer>
+        <span class="key-hints"
+          ><kbd>↑↓</kbd> navigate <span aria-hidden="true">·</span> <kbd>esc</kbd> close</span
+        ><button id="settings" class="quiet">Edit destinations</button>
+      </footer>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
