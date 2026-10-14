@@ -2,7 +2,7 @@
 
 A local, keyboard-first destination launcher for Brave on macOS. Open it, press a number or type a group name, and keep working in the same tab.
 
-**V1.1 development status:** production build, strict type checking, lint, formatting, 141 automated tests, and 35 browser-rendered UI checks pass. Real Brave shortcut dispatch, native focus, notification delivery, grouping and Undo still require the [manual acceptance checklist](docs/VALIDATION.md). This cloud browser blocks unpacked extensions by administrator policy. Mocked tests do not prove Brave API behavior.
+**V1.1 development status:** production build, strict type checking, lint, formatting, 141 automated tests, and 41 browser-rendered UI checks pass. Real Brave popup auto-sizing, shortcut dispatch, native focus, notification delivery, grouping and Undo still require the [manual acceptance checklist](docs/VALIDATION.md). This cloud browser blocks unpacked extensions by administrator policy. Mocked tests do not prove Brave API behavior.
 
 ## Install or update
 

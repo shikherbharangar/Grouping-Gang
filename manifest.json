@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Grouping Gang",
   "description": "One shortcut. Ten destinations. Send your current tab to its group.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "minimum_chrome_version": "127",
   "permissions": ["tabs", "tabGroups", "storage", "sessions", "notifications"],
   "incognito": "not_allowed",

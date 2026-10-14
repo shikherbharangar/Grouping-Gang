@@ -1,5 +1,6 @@
 // Browser-rendered UI checks with a deliberately isolated Chrome API test double.
 // These verify the shipped DOM/CSS/event handlers, not real extension API behavior.
+import { checkPopupGeometry } from './popup-geometry-check.mjs';
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
@@ -44,6 +45,7 @@ try {
   browser = await chromium.launchPersistentContext(profile, {
     executablePath,
     headless: true,
+    ignoreDefaultArgs: ['--hide-scrollbars'],
     args: ['--no-sandbox'],
     viewport: { width: 1200, height: 1100 },
   });
@@ -115,7 +117,7 @@ try {
       context: { tabId: 5, windowId: 1 },
       tabTitle: 'A good place to start — current tab',
       shortcut: '⌘⇧.',
-      version: '1.1.0',
+      version: '1.1.1',
       setupCompleted: true,
       autoAssign: false,
       undo: null,
@@ -170,6 +172,14 @@ try {
         sendMessage: async (command) => {
           globalThis.__gg.commands.push(command);
           if (command.type === 'state') {
+            if (
+              new URL(location.href).searchParams.has('hold-state') &&
+              !globalThis.__gg.releaseState
+            ) {
+              await new Promise((resolve) => {
+                globalThis.__gg.releaseState = resolve;
+              });
+            }
             if (slow) await new Promise((resolve) => setTimeout(resolve, 180));
             return { ok: true, state: structuredClone(state) };
           }
@@ -263,6 +273,7 @@ try {
       },
     };
   });
+  await checkPopupGeometry(browser, origin, artifacts, pass);
   const settings = await browser.newPage();
   await settings.goto(`${origin}/src/settings/index.html`);
   await settings.locator('.assignment').last().waitFor();

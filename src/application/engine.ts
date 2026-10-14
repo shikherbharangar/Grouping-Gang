@@ -149,7 +149,7 @@ export class Engine {
       context: tab ? { tabId: tab.tabId, windowId: tab.windowId } : null,
       tabTitle: tab?.title || '',
       shortcut: await this.browser.shortcut(),
-      version: '1.1.0',
+      version: '1.1.1',
     };
   }
   private async intendedTab(context: TabContext): Promise<BrowserTab> {
