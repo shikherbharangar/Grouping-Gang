@@ -9,6 +9,19 @@ export function isCommand(value: unknown): value is Command {
   switch (value.type) {
     case 'state':
       return value.capture === undefined || typeof value.capture === 'boolean';
+    case 'setup':
+      return (
+        Array.isArray(value.assignments) &&
+        value.assignments.length <= 10 &&
+        value.assignments.every((a) => object(a) && isSlot(a.slot) && integer(a.groupId)) &&
+        typeof value.autoAssign === 'boolean'
+      );
+    case 'auto-assign':
+      return typeof value.enabled === 'boolean';
+    case 'undo':
+    case 'undo-assignment':
+    case 'dismiss-notice':
+      return typeof value.id === 'string' && value.id.length > 0 && value.id.length < 100;
     case 'sessions':
     case 'reset':
       return true;

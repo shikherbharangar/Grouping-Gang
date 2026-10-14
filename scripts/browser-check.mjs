@@ -59,6 +59,7 @@ try {
         color: 'green',
         collapsed: false,
         tabIds: [100],
+        firstIndex: 0,
       },
       {
         id: 11,
@@ -67,6 +68,7 @@ try {
         color: 'yellow',
         collapsed: true,
         tabIds: [101],
+        firstIndex: 2,
       },
       {
         id: 12,
@@ -75,6 +77,7 @@ try {
         color: 'blue',
         collapsed: false,
         tabIds: [102],
+        firstIndex: 0,
       },
       {
         id: 13,
@@ -83,6 +86,7 @@ try {
         color: 'purple',
         collapsed: false,
         tabIds: [103],
+        firstIndex: 2,
       },
     ];
     const titles = [
@@ -111,8 +115,18 @@ try {
       context: { tabId: 5, windowId: 1 },
       tabTitle: 'A good place to start — current tab',
       shortcut: '⌘⇧.',
-      version: '1.0.0',
+      version: '1.1.0',
+      setupCompleted: true,
+      autoAssign: false,
+      undo: null,
+      notice: null,
     };
+    const fresh = new URL(location.href).searchParams.has('fresh');
+    const slow = new URL(location.href).searchParams.has('slow');
+    if (fresh) {
+      state.setupCompleted = false;
+      state.destinations = [];
+    }
     globalThis.__gg = { state, commands: [], closed: false, failMove: false, options: false };
     const emit = () =>
       changes.forEach((fn) => fn({ registry: { newValue: { theme: state.theme } } }, 'local'));
@@ -121,7 +135,25 @@ try {
     };
     globalThis.chrome = {
       storage: {
-        local: { get: async () => ({ registry: { theme: state.theme } }) },
+        local: {
+          get: async () => ({
+            registry: {
+              version: 3,
+              theme: state.theme,
+              destinations: state.destinations.map((d) => ({
+                id: d.id,
+                slot: d.slot,
+                title: d.title,
+                color: d.color,
+                lastSeenAt: d.lastSeenAt,
+                binding: d.binding,
+              })),
+              pending: null,
+              setupCompleted: state.setupCompleted,
+              autoAssign: state.autoAssign,
+            },
+          }),
+        },
         onChanged: { addListener: (fn) => changes.push(fn) },
       },
       tabs: { create: async () => ({}) },
@@ -137,7 +169,43 @@ try {
         },
         sendMessage: async (command) => {
           globalThis.__gg.commands.push(command);
-          if (command.type === 'state') return { ok: true, state: structuredClone(state) };
+          if (command.type === 'state') {
+            if (slow) await new Promise((resolve) => setTimeout(resolve, 180));
+            return { ok: true, state: structuredClone(state) };
+          }
+          if (command.type === 'setup') {
+            state.setupCompleted = true;
+            state.autoAssign = command.autoAssign;
+            state.destinations = command.assignments.map((a) => {
+              const g = groups.find((g) => g.id === a.groupId);
+              return {
+                ...destinations[0],
+                id: `setup-${a.slot}`,
+                slot: a.slot,
+                title: g.title,
+                color: g.color,
+                group: g,
+                state: 'live',
+              };
+            });
+            emit();
+            return { ok: true, state: structuredClone(state) };
+          }
+          if (command.type === 'auto-assign') {
+            state.autoAssign = command.enabled;
+            emit();
+            return { ok: true };
+          }
+          if (command.type === 'undo') {
+            state.undo = null;
+            state.notice = null;
+            return { ok: true, outcome: 'Move undone.' };
+          }
+          if (command.type === 'undo-assignment' || command.type === 'dismiss-notice') {
+            state.notice = null;
+            if (command.type === 'undo-assignment') state.assignmentUndo = null;
+            return { ok: true };
+          }
           if (command.type === 'move')
             return globalThis.__gg.failMove
               ? {
@@ -267,11 +335,11 @@ try {
   );
   pass('recovery requires an explicit session selection and confirmation');
   const popup = await browser.newPage();
-  await popup.setViewportSize({ width: 400, height: 600 });
+  await popup.setViewportSize({ width: 560, height: 430 });
   await popup.goto(`${origin}/src/switcher/index.html`);
   await popup.locator('.slot').last().waitFor();
-  assert.equal(await popup.locator('.slot').count(), 10);
-  pass('switcher renders all ten slots');
+  assert.equal(await popup.locator('.slot[data-slot]').count(), 5);
+  pass('launcher renders assigned destinations without ten empty rows');
   await popup.evaluate(() => {
     globalThis.__gg.state.destinations[1].group.collapsed = false;
     globalThis.__gg.onMessage({ type: 'invalidated' }, { id: 'ui-test-only' }, () => {});
@@ -287,15 +355,17 @@ try {
     () => document.querySelector('[data-slot="2"] .slot-state').textContent === 'Collapsed',
   );
   pass('browser event invalidation refreshes collapsed state without polling');
-  assert.ok(await popup.evaluate(() => document.body.scrollHeight <= 600));
-  assert.ok(await popup.evaluate(() => document.documentElement.scrollWidth <= 400));
-  pass('switcher fits ten rows within Chromium popup dimensions without overflow');
-  await popup.screenshot({
+  assert.ok(await popup.evaluate(() => document.body.scrollHeight <= 430));
+  assert.ok(await popup.evaluate(() => document.documentElement.scrollWidth <= 560));
+  pass('compact launcher fits its surface without horizontal overflow');
+  await popup.locator('.switcher').screenshot({
     animations: 'disabled',
     path: resolve(artifacts, 'switcher-light.png'),
   });
   await popup.emulateMedia({ colorScheme: 'dark' });
-  await popup.screenshot({ animations: 'disabled', path: resolve(artifacts, 'switcher-dark.png') });
+  await popup
+    .locator('.switcher')
+    .screenshot({ animations: 'disabled', path: resolve(artifacts, 'switcher-dark.png') });
   assert.ok(
     await popup
       .locator('[data-slot="3"] .slot-title')
@@ -304,29 +374,39 @@ try {
   assert.match(await popup.locator('[data-slot="3"]').getAttribute('title'), /truncate cleanly/);
   pass('long names truncate with full accessible labels and titles');
   await popup.keyboard.press('ArrowUp');
-  assert.equal(await popup.locator(':focus').getAttribute('data-slot'), '0');
+  assert.equal(await popup.locator('#search').getAttribute('aria-activedescendant'), 'slot-5');
   await popup.keyboard.press('ArrowDown');
-  assert.equal(await popup.locator(':focus').getAttribute('data-slot'), '1');
+  assert.equal(await popup.locator('#search').getAttribute('aria-activedescendant'), 'slot-1');
   await popup.keyboard.press('Tab');
   assert.equal(await popup.locator(':focus').getAttribute('id'), 'settings');
   await popup.keyboard.press('Enter');
   assert.ok(await popup.evaluate(() => globalThis.__gg.options));
   pass('arrow wrap, visible focus and Tab/Enter settings navigation');
+  await popup.locator('#search').focus();
   await popup.keyboard.press('0');
   assert.match(await popup.locator('#status').innerText(), /Number 0 is unassigned/);
   assert.ok(!(await popup.evaluate(() => globalThis.__gg.commands.some((c) => c.type === 'move'))));
   pass('zero and empty slots never move a tab');
   await popup.keyboard.press('5');
-  assert.match(await popup.locator('#status').innerText(), /Confirm this destination/);
+  assert.match(await popup.locator('#status').innerText(), /Confirm the intended group/);
   pass('ambiguous destination requires explicit binding');
-  await popup.keyboard.press('4');
-  await popup.locator('dialog').waitFor();
   await popup.keyboard.press('Escape');
   assert.equal(await popup.locator('dialog').count(), 0);
+  assert.ok(!(await popup.evaluate(() => globalThis.__gg.commands.some((c) => c.type === 'move'))));
+  pass('Escape cancels without side effects');
+  await popup.reload();
+  await popup.locator('.slot[data-slot]').last().waitFor();
+  await popup.keyboard.press('4');
+  await popup.waitForFunction(() => globalThis.__gg.closed);
+  assert.equal(await popup.locator('dialog').count(), 0);
   assert.ok(
-    !(await popup.evaluate(() => globalThis.__gg.commands.some((c) => c.type === 'recover'))),
+    await popup.evaluate(() =>
+      globalThis.__gg.commands.some((c) => c.type === 'move' && c.slot === 4),
+    ),
   );
-  pass('Escape cancels recovery without side effects');
+  pass('selecting a missing destination invokes direct recreation without confirmation');
+  await popup.reload();
+  await popup.locator('.slot[data-slot]').last().waitFor();
   await popup.evaluate(() => {
     globalThis.__gg.failMove = true;
   });
@@ -360,6 +440,142 @@ try {
   assert.ok(await popup.evaluate(() => globalThis.__gg.closed));
   assert.ok(!(await popup.evaluate(() => globalThis.__gg.commands.some((c) => c.type === 'move'))));
   pass('Escape dismisses without move');
+
+  await popup.reload();
+  await popup.locator('.slot[data-slot]').last().waitFor();
+  assert.equal(await popup.locator(':focus').getAttribute('id'), 'search');
+  pass('launcher focuses search immediately');
+  await popup.locator('#search').fill('field');
+  assert.equal(await popup.locator('.slot[data-slot]').count(), 1);
+  await popup.keyboard.press('1');
+  assert.equal(await popup.locator('#search').inputValue(), 'field1');
+  assert.equal(await popup.locator('.slot[data-slot]').count(), 0);
+  assert.ok(!(await popup.evaluate(() => globalThis.__gg.commands.some((c) => c.type === 'move'))));
+  pass('numbers in a non-empty query are ordinary search input');
+  await popup.keyboard.press('Escape');
+  assert.equal(await popup.locator('#search').inputValue(), '');
+  assert.ok(!(await popup.evaluate(() => globalThis.__gg.closed)));
+  pass('first Escape clears search without closing');
+  await popup.locator('#search').fill('things');
+  assert.equal(await popup.locator('#search').getAttribute('aria-activedescendant'), 'slot-2');
+  await popup.locator('#search').fill('field');
+  assert.equal(await popup.locator('#search').getAttribute('aria-activedescendant'), 'slot-1');
+  pass('selection always references a remaining filtered destination');
+  await popup.evaluate(() => {
+    const input = document.querySelector('#search');
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true }),
+    );
+  });
+  await popup.waitForFunction(() => globalThis.__gg.closed);
+  assert.equal(
+    await popup.evaluate(() => globalThis.__gg.commands.filter((c) => c.type === 'move').length),
+    1,
+  );
+  pass('rapid Enter and key repeat cannot double-activate');
+  await popup.goto(`${origin}/src/switcher/index.html?slow=1`);
+  await popup.locator('#search').press('1');
+  await popup.waitForFunction(() => globalThis.__gg.closed);
+  assert.ok(
+    await popup.evaluate(() =>
+      globalThis.__gg.commands.some((c) => c.type === 'move' && c.slot === 1),
+    ),
+  );
+  pass('number input is accepted while state loads');
+  await popup.goto(`${origin}/src/switcher/index.html?fresh=1`);
+  await popup.locator('#accept-setup').waitFor();
+  assert.equal(await popup.locator('.proposal-row').count(), 10);
+  assert.equal(await popup.locator('#proposal-1').inputValue(), '10');
+  await popup
+    .locator('.switcher')
+    .screenshot({ animations: 'disabled', path: resolve(artifacts, 'setup-v1.1.png') });
+  await popup.locator('#proposal-1').selectOption('11');
+  assert.equal(await popup.locator('#proposal-2').inputValue(), '10');
+  await popup.locator('#proposal-1').selectOption('');
+  await popup.locator('#accept-setup').click();
+  await popup.waitForFunction(() => document.querySelector('#setup').hidden);
+  assert.ok(
+    await popup.evaluate(() =>
+      globalThis.__gg.commands.some((c) => c.type === 'setup' && c.assignments.length === 3),
+    ),
+  );
+  pass('first-use mapping can be edited and accepted in one action');
+  await popup.goto(`${origin}/src/switcher/index.html`);
+  await popup.locator('.slot[data-slot]').last().waitFor();
+  await popup.evaluate(() => {
+    const now = Date.now();
+    globalThis.__gg.state.undo = { id: 'last-move', expiresAt: now + 10000 };
+    globalThis.__gg.state.notice = {
+      id: 'last-move',
+      kind: 'move',
+      message: 'Moved to Field notes.',
+      expiresAt: now + 1000,
+    };
+    globalThis.__gg.onMessage({ type: 'invalidated' }, { id: 'ui-test-only' }, () => {});
+  });
+  await popup.locator('#notice-undo').waitFor();
+  await popup
+    .locator('.switcher')
+    .screenshot({ animations: 'disabled', path: resolve(artifacts, 'undo-v1.1.png') });
+  await popup.locator('#notice-undo').click();
+  await popup.waitForFunction(() =>
+    globalThis.__gg.commands.some((c) => c.type === 'undo' && c.id === 'last-move'),
+  );
+  pass('visible Undo sends the exact short-lived operation ID');
+  await popup.evaluate(() => {
+    globalThis.__gg.state.notice = {
+      id: 'auto',
+      kind: 'assignment',
+      message: 'Assigned Reading room to 6.',
+      expiresAt: Date.now() + 500,
+    };
+    globalThis.__gg.onMessage({ type: 'invalidated' }, { id: 'ui-test-only' }, () => {});
+  });
+  await popup.locator('#notice').waitFor();
+  await popup.waitForFunction(() => document.querySelector('#notice').hidden);
+  pass('temporary notification expires without blocking input');
+  await popup.evaluate(() => {
+    globalThis.__gg.state.assignmentUndo = { id: 'assignment-undo', expiresAt: Date.now() + 10000 };
+    globalThis.__gg.onMessage({ type: 'invalidated' }, { id: 'ui-test-only' }, () => {});
+  });
+  await popup.locator('#undo-assignment').waitFor();
+  await popup.locator('#undo-assignment').click();
+  await popup.waitForFunction(() =>
+    globalThis.__gg.commands.some(
+      (c) => c.type === 'undo-assignment' && c.id === 'assignment-undo',
+    ),
+  );
+  pass('automatic assignment undo remains reachable after the banner expires');
+  await popup.evaluate(() => {
+    const d = {
+      ...globalThis.__gg.state.destinations[0],
+      id: 'zero',
+      slot: 0,
+      title: 'Zero destination',
+    };
+    globalThis.__gg.state.destinations.push(d);
+    globalThis.__gg.onMessage({ type: 'invalidated' }, { id: 'ui-test-only' }, () => {});
+  });
+  await popup.locator('[data-slot="0"]').waitFor();
+  await popup.locator('#search').focus();
+  await popup.keyboard.press('0');
+  await popup.waitForFunction(() => globalThis.__gg.closed);
+  assert.ok(
+    await popup.evaluate(() =>
+      globalThis.__gg.commands.some((c) => c.type === 'move' && c.slot === 0),
+    ),
+  );
+  pass('assigned number zero invokes the tenth slot');
+  await settings.locator('#auto-assign').check();
+  assert.ok(
+    await settings.evaluate(() =>
+      globalThis.__gg.commands.some((c) => c.type === 'auto-assign' && c.enabled),
+    ),
+  );
+  pass('automatic assignment preference is configurable');
+
   await settings.getByText('Reset & diagnostics', { exact: true }).click();
   await settings.getByRole('button', { name: 'Reset Grouping Gang…' }).click();
   await settings.getByRole('button', { name: 'Reset assignments', exact: true }).click();

@@ -10,7 +10,7 @@
       <header class="settings-header">
         <h1 class="wordmark">GROUPING<span>GANG.</span></h1>
         <span class="eyebrow secondary">A little order.<br />A lot less dragging.</span
-        ><span id="version" class="version mono">v1.0.0</span>
+        ><span id="version" class="version mono">v1.1.0</span>
       </header>
       <main>
         <div class="page-intro">
@@ -33,10 +33,18 @@
           </div>
           <div>
             <p id="empty-hint" class="empty-hint" hidden>
-              Create a tab group in Brave, then choose <strong>Assign group</strong> below. Nothing
-              is assigned automatically.
+              Create a tab group in Brave, then choose <strong>Assign group</strong> below. New
+              groups can use free numbers when automatic assignment is enabled.
             </p>
             <div id="assignments" class="assignments" aria-label="Destination assignments"></div>
+            <label class="auto-setting"
+              ><input id="auto-assign" type="checkbox" /> Automatically assign new groups to free
+              numbers</label
+            >
+            <p class="secondary small">
+              Existing and missing destinations keep their numbers. Automatic assignments can be
+              undone for 30 seconds.
+            </p>
             <p class="table-note secondary">
               Moving to a collapsed group opens it. Moving between windows follows the destination.
             </p>

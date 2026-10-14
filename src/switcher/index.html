@@ -3,28 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Grouping Gang — Switcher</title>
+    <title>Grouping Gang — Launcher</title>
   </head>
   <body>
-    <main class="switcher">
-      <header class="masthead">
-        <h1 class="wordmark">
-          GROUPING<span>GANG<span class="wordmark-period" aria-hidden="true">.</span></span>
-        </h1>
-        <div class="shortcut-note">
-          <span class="eyebrow">Make your move</span><kbd id="shortcut">···</kbd>
-        </div>
-      </header>
-      <div class="source">
-        <span class="source-label">Send this tab</span>
-        <p id="tab-title" class="secondary" title="">Loading browser state…</p>
+    <main class="switcher" aria-label="Grouping Gang">
+      <div class="search-area">
+        <span class="search-mark mono" aria-hidden="true">gg.</span
+        ><input
+          id="search"
+          type="text"
+          role="combobox"
+          aria-label="Search destinations"
+          aria-controls="slots"
+          aria-expanded="true"
+          aria-autocomplete="list"
+          placeholder="Move tab to…"
+          autocomplete="off"
+          spellcheck="false"
+          autofocus
+        /><kbd class="search-hint">1–0</kbd>
       </div>
-      <div id="slots" class="slots" role="group" aria-label="Numbered destinations"></div>
+      <section id="setup" class="setup" aria-labelledby="setup-title" hidden>
+        <div class="setup-intro">
+          <h1 id="setup-title">Your groups, numbered.</h1>
+          <p class="secondary">Review once. Your numbers stay put.</p>
+        </div>
+        <div id="proposal"></div>
+        <label class="auto-label"
+          ><input id="setup-auto" type="checkbox" checked /> Give new groups the next free
+          number</label
+        ><button id="accept-setup" class="primary">Use these numbers</button>
+      </section>
+      <div id="slots" class="slots" role="listbox" aria-label="Destinations"></div>
+      <p id="empty" class="empty-state" hidden>
+        No destinations yet. Assign an open group in settings.
+      </p>
       <p id="status" role="status" aria-live="polite"></p>
+      <button id="resolve" class="quiet resolve" hidden>Resolve in settings</button>
+      <div id="notice" class="notice-bar" hidden>
+        <span id="notice-text"></span><button id="notice-undo" class="quiet">Undo</button
+        ><button id="dismiss-notice" class="quiet" aria-label="Dismiss notification">×</button>
+      </div>
       <footer>
-        <span class="key-hints"
-          ><kbd>↑↓</kbd> navigate <span aria-hidden="true">·</span> <kbd>esc</kbd> close</span
-        ><button id="settings" class="quiet">Edit destinations</button>
+        <span id="hint" class="key-hints"
+          ><kbd>↑↓</kbd> select <span aria-hidden="true">·</span> <kbd>↵</kbd> move</span
+        ><button id="undo" class="quiet" hidden>Undo last move</button
+        ><button id="undo-assignment" class="quiet" hidden>Undo assignment</button>
+        <button id="settings" class="quiet">Settings</button
+        ><span class="product-name mono">Grouping Gang</span>
       </footer>
     </main>
     <script type="module" src="./main.ts"></script>

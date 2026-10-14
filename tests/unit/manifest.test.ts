@@ -8,10 +8,16 @@ describe('release manifest', () => {
     expect(manifest.name).toBe('Grouping Gang');
     expect(manifest.version).toBe(pkg.version);
     expect(manifest.background).toEqual({ service_worker: 'background.js', type: 'module' });
-    expect(manifest.commands._execute_action.suggested_key.mac).toBe('Command+Shift+Period');
+    expect(manifest.commands['open-launcher'].suggested_key.mac).toBe('Command+Shift+Period');
   });
   it('requests only the documented API permissions and no website access', () => {
-    expect(manifest.permissions).toEqual(['tabs', 'tabGroups', 'storage', 'sessions']);
+    expect(manifest.permissions).toEqual([
+      'tabs',
+      'tabGroups',
+      'storage',
+      'sessions',
+      'notifications',
+    ]);
     expect(manifest).not.toHaveProperty('host_permissions');
     expect(manifest).not.toHaveProperty('content_scripts');
   });

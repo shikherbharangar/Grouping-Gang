@@ -23,6 +23,8 @@ export default ts.config(
         process: 'readonly',
         setTimeout: 'readonly',
         URL: 'readonly',
+        location: 'readonly',
+        KeyboardEvent: 'readonly',
         structuredClone: 'readonly',
         document: 'readonly',
         getComputedStyle: 'readonly',

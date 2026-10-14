@@ -1,8 +1,16 @@
 import { vi } from 'vitest';
 import type { BrowserGateway } from '../src/browser/gateway';
 import type { Repository } from '../src/storage/repository';
+import { parseSession } from '../src/storage/session';
 import { emptyRegistry, parseRegistry } from '../src/storage/schema';
-import type { BrowserTab, ClosedTab, Destination, LiveGroup, Registry } from '../src/shared/types';
+import type {
+  BrowserTab,
+  ClosedTab,
+  Destination,
+  LiveGroup,
+  Registry,
+  SessionState,
+} from '../src/shared/types';
 export const ID = '00000000-0000-4000-8000-000000000001';
 export const ID2 = '00000000-0000-4000-8000-000000000002';
 export const group = (id = 10, windowId = 1): LiveGroup => ({
@@ -12,6 +20,7 @@ export const group = (id = 10, windowId = 1): LiveGroup => ({
   color: 'green',
   collapsed: false,
   tabIds: [id + 100],
+  firstIndex: id,
 });
 export const destination = (): Destination => ({
   id: ID,
@@ -25,6 +34,13 @@ export const registry = (): Registry => ({ ...emptyRegistry(), destinations: [de
 export class MemoryRepository implements Repository {
   data: unknown = registry();
   writes = 0;
+  session: unknown = undefined;
+  async loadSession(epoch: string, now: number) {
+    return structuredClone(parseSession(this.session, epoch, now));
+  }
+  async saveSession(value: SessionState): Promise<void> {
+    this.session = structuredClone(value);
+  }
   async load(): Promise<Registry> {
     return structuredClone(parseRegistry(this.data));
   }
@@ -34,6 +50,7 @@ export class MemoryRepository implements Repository {
   }
   async reset(): Promise<void> {
     this.data = emptyRegistry();
+    this.session = undefined;
   }
 }
 export class FakeBrowser implements BrowserGateway {
@@ -44,6 +61,7 @@ export class FakeBrowser implements BrowserGateway {
       id: 5,
       windowId: 1,
       groupId: -1,
+      index: 4,
       active: true,
       pinned: false,
       incognito: false,
@@ -70,10 +88,15 @@ export class FakeBrowser implements BrowserGateway {
   async normalWindow(): Promise<boolean> {
     return true;
   }
-  move = vi.fn(async (id: number, windowId: number): Promise<void> => {
+  move = vi.fn(async (id: number, windowId: number, index = -1): Promise<void> => {
     const t = this.tabs.find((t) => t.id === id)!;
+    if (t.windowId !== windowId) t.groupId = -1;
     t.windowId = windowId;
-    t.groupId = -1;
+    if (index >= 0) t.index = index;
+  });
+  ungroup = vi.fn(async (id: number): Promise<void> => {
+    this.tabs.find((t) => t.id === id)!.groupId = -1;
+    for (const g of this.live) g.tabIds = g.tabIds.filter((t) => t !== id);
   });
   group = vi.fn(async (ids: number[], groupId?: number): Promise<number> => {
     let g = this.live.find((g) => g.id === groupId);
@@ -117,6 +140,7 @@ export class FakeBrowser implements BrowserGateway {
       id: 200,
       windowId: 1,
       groupId: -1,
+      index: 4,
       active: false,
       pinned: false,
       incognito: false,
@@ -135,6 +159,7 @@ export class FakeBrowser implements BrowserGateway {
       id: 201,
       windowId: 2,
       groupId: -1,
+      index: 4,
       active: true,
       pinned: false,
       incognito: false,

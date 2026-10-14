@@ -1,54 +1,61 @@
 @import '../design/base.css';
 body {
-  width: 400px;
+  width: 560px;
 }
 .switcher {
-  padding: 20px 20px 8px;
+  padding: 0 16px;
   animation: enter var(--enter) var(--ease);
 }
-.masthead {
+.search-area {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--text);
+  gap: 12px;
+  height: 64px;
+  border-bottom: 1px solid var(--line);
 }
-.wordmark .wordmark-period {
-  display: inline;
+.search-mark {
   color: var(--accent);
+  font-size: 21px;
+  letter-spacing: -2px;
+  flex: 0 0 32px;
 }
-.shortcut-note {
-  text-align: right;
-  display: grid;
-  gap: 8px;
+#search {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 21px;
+  letter-spacing: -0.5px;
+  padding: 12px 0;
+  color: var(--text);
 }
-.shortcut-note .eyebrow {
-  font-size: 10px;
+#search::placeholder {
   color: var(--secondary);
-  letter-spacing: 0.03em;
+  opacity: 0.85;
 }
-.shortcut-note kbd {
-  font-size: 11px;
-  color: var(--accent);
+.search-area:focus-within {
+  border-color: var(--focus);
 }
-.source {
-  padding: 16px 0 12px;
-}
-.source-label {
-  font-size: 12px;
-  font-weight: 600;
-}
-.source p {
-  font-size: 12px;
-  margin-top: 2px;
+.search-hint {
+  color: var(--secondary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 3px 5px;
 }
 .slots {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 2px;
+  max-height: 264px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 8px 0;
+}
+.slots:empty {
+  display: none;
 }
 .slot {
   min-width: 0;
@@ -56,11 +63,12 @@ body {
   align-items: center;
   gap: 12px;
   text-align: left;
-  height: 36px;
-  padding: 3px 8px 3px 0;
+  height: 42px;
+  padding: 4px 12px 4px 8px;
   border: 1px solid transparent;
   background: transparent;
   width: 100%;
+  border-radius: 4px;
 }
 .slot:hover {
   background: var(--selection);
@@ -68,6 +76,7 @@ body {
 }
 .slot.selected {
   background: var(--selection);
+  border-color: var(--line);
 }
 .slot.selected .number {
   background: var(--accent);
@@ -75,11 +84,13 @@ body {
   border-color: var(--accent);
 }
 .slot:focus-visible {
-  outline-offset: 0;
+  outline-offset: -2px;
 }
 .slot .number {
   border-color: transparent;
   font-size: 14px;
+  width: 28px;
+  height: 28px;
 }
 .slot-title {
   flex: 1;
@@ -87,23 +98,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 14px;
 }
 .slot-state {
   color: var(--secondary);
-  font-size: 10px;
-}
-.slot.empty {
-  color: var(--secondary);
-}
-.slot.empty .dot {
-  background: transparent;
-  border: 1px solid var(--line);
-}
-.slot.empty .slot-state {
-  font:
-    16px 'Paper Mono',
-    monospace;
+  font-size: 11px;
 }
 .slot[data-state='missing'] .dot {
   background: transparent;
@@ -112,9 +111,15 @@ body {
 .slot[data-state='ambiguous'] .slot-state {
   color: var(--danger);
 }
+.empty-state {
+  padding: 32px 16px;
+  color: var(--secondary);
+  font-size: 13px;
+  text-align: center;
+}
 #status:not(:empty) {
-  margin-top: 8px;
-  padding: 8px 10px;
+  margin: 8px 0;
+  padding: 10px 12px;
   font-size: 12px;
   background: var(--selection);
   border-radius: 3px;
@@ -122,26 +127,110 @@ body {
 #status.error {
   background: var(--danger-bg);
 }
+.resolve {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.notice-bar > span {
+  flex: 1;
+  min-width: 0;
+}
+.notice-bar button {
+  font-size: 12px;
+  padding: 6px 8px;
+}
 footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
+  gap: 12px;
+  min-height: 42px;
   border-top: 1px solid var(--line);
-  padding-top: 8px;
 }
 .key-hints {
   color: var(--secondary);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .key-hints kbd {
-  font-size: 10px;
-}
-footer button {
-  padding: 8px 0 8px 8px;
   font-size: 11px;
 }
-.dialog {
-  padding: 20px;
+footer button {
+  padding: 6px 0;
+  font-size: 11px;
+}
+#undo,
+#undo-assignment {
+  color: var(--accent);
+}
+#settings {
+  margin-left: auto;
+}
+.product-name {
+  font-size: 10px;
+  color: var(--secondary);
+  letter-spacing: -0.3px;
+}
+.setup {
+  padding: 16px 0;
+  max-height: 480px;
+  overflow: auto;
+}
+.setup-intro h1 {
+  font-size: 17px;
+  letter-spacing: -0.4px;
+}
+.setup-intro p {
+  font-size: 12px;
+  margin: 4px 0 16px;
+}
+#proposal {
+  display: grid;
+  gap: 4px;
+  max-height: 290px;
+  overflow: auto;
+}
+.proposal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 0;
+}
+.proposal-row label {
+  flex: 0 0 28px;
+}
+.proposal-row select {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.auto-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  font-size: 12px;
+}
+.auto-label input {
+  accent-color: var(--accent);
+}
+#accept-setup {
+  width: 100%;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 559px) {
+  body {
+    width: 100vw;
+  }
+  .product-name {
+    display: none;
+  }
 }

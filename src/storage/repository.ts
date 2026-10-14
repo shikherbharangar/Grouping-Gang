@@ -1,9 +1,12 @@
-import type { Registry } from '../shared/types';
+import type { Registry, SessionState } from '../shared/types';
+import { parseSession } from './session';
 import { parseRegistry } from './schema';
 export interface Repository {
   load(): Promise<Registry>;
   save(registry: Registry): Promise<void>;
   reset(): Promise<void>;
+  loadSession(epoch: string, now: number): Promise<SessionState>;
+  saveSession(session: SessionState): Promise<void>;
 }
 export const STORAGE_KEY = 'registry';
 export class ChromeRepository implements Repository {
@@ -15,7 +18,15 @@ export class ChromeRepository implements Repository {
     parseRegistry(registry);
     await chrome.storage.local.set({ [STORAGE_KEY]: registry });
   }
+  async loadSession(epoch: string, now: number): Promise<SessionState> {
+    const data = await chrome.storage.session.get('operations');
+    return parseSession(data.operations, epoch, now);
+  }
+  async saveSession(session: SessionState): Promise<void> {
+    await chrome.storage.session.set({ operations: session });
+  }
   async reset(): Promise<void> {
+    await chrome.storage.session.remove('operations');
     const data = await chrome.storage.local.get(STORAGE_KEY);
     if (data[STORAGE_KEY] !== undefined)
       await chrome.storage.local.set({ registryBackup: data[STORAGE_KEY] });

@@ -2,17 +2,31 @@
   "manifest_version": 3,
   "name": "Grouping Gang",
   "description": "One shortcut. Ten destinations. Send your current tab to its group.",
-  "version": "1.0.0",
-  "minimum_chrome_version": "120",
-  "permissions": ["tabs", "tabGroups", "storage", "sessions"],
+  "version": "1.1.0",
+  "minimum_chrome_version": "127",
+  "permissions": ["tabs", "tabGroups", "storage", "sessions", "notifications"],
   "incognito": "not_allowed",
-  "background": { "service_worker": "background.js", "type": "module" },
-  "action": { "default_title": "Grouping Gang", "default_popup": "src/switcher/index.html" },
-  "options_ui": { "page": "src/settings/index.html", "open_in_tab": true },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Grouping Gang",
+    "default_popup": "src/switcher/index.html"
+  },
+  "options_ui": {
+    "page": "src/settings/index.html",
+    "open_in_tab": true
+  },
   "commands": {
-    "_execute_action": {
-      "suggested_key": { "default": "Ctrl+Shift+Period", "mac": "Command+Shift+Period" }
-    }
+    "open-launcher": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Period",
+        "mac": "Command+Shift+Period"
+      },
+      "description": "Open Grouping Gang"
+    },
+    "_execute_action": {}
   },
   "icons": {
     "16": "icons/icon-16.png",
@@ -20,5 +34,7 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'self'" }
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }

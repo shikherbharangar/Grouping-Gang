@@ -109,7 +109,7 @@ describe('storage and request validation', () => {
     const r = { ...registry(), version: 1, theme: 'light' };
     delete (r as Partial<typeof r>).pending;
     expect(parseRegistry(r)).toMatchObject({
-      version: 2,
+      version: 3,
       theme: 'light',
       pending: null,
       destinations: [{ slot: 1 }],

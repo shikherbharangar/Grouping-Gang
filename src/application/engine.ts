@@ -1,10 +1,16 @@
 import type { BrowserGateway } from '../browser/gateway';
+import { SLOTS } from '../shared/types';
+import { fromGroup, orderGroups, validateProposal } from '../domain/setup';
+import { clearMoveUndo, rememberMove, undoMove } from './undo';
+import { NOTICE_MS, UNDO_MS } from '../storage/session';
 import { assign, transfer } from '../domain/assignment';
 import { AppError, errorMessage } from '../domain/errors';
 import { reconcile, resolve } from '../domain/identity';
 import type { Repository } from '../storage/repository';
 import type {
   BrowserTab,
+  CapturedSource,
+  Notice,
   Command,
   Destination,
   LiveGroup,
@@ -26,10 +32,10 @@ export class Engine {
     this.tail = result.catch(() => undefined);
     return result;
   }
-  dispatch(command: Command): Promise<Result> {
+  dispatch(command: Command, source?: CapturedSource): Promise<Result> {
     return this.serialize(async () => {
       try {
-        return await this.execute(command);
+        return await this.execute(command, source);
       } catch (error) {
         // Reconcile once after a failed operation; never repeat browser mutations.
         try {
@@ -47,6 +53,10 @@ export class Engine {
         };
       }
     });
+  }
+  async latestNotice(): Promise<Notice | null> {
+    const s = await this.repo.loadSession(await this.browser.epoch(), this.now());
+    return s.notice;
   }
   reconcileEvent(removedGroupId?: number): Promise<void> {
     return this.serialize(async () => {
@@ -68,25 +78,90 @@ export class Engine {
     const registry = await this.repo.load();
     const epoch = await this.browser.epoch();
     const groups = await this.browser.groups();
-    const next = reconcile(registry, groups, epoch, this.now());
+    let next = reconcile(registry, groups, epoch, this.now());
+    const session = await this.repo.loadSession(epoch, this.now());
+    const added: Destination[] = [];
+    if (next.setupCompleted && next.autoAssign && session.knownGroups !== null && !next.pending) {
+      const active = await this.browser.activeTab();
+      for (const group of orderGroups(groups, active?.windowId ?? null)) {
+        if (
+          session.knownGroups.includes(group.id) ||
+          next.destinations.some(
+            (d) => d.binding?.epoch === epoch && d.binding.groupId === group.id,
+          )
+        )
+          continue;
+        if (
+          next.destinations.some((d) => {
+            const view = resolve(d, groups, epoch, next.pending);
+            return view.state !== 'live' && view.candidates.includes(group.id);
+          })
+        )
+          continue;
+        const slot = SLOTS.find((slot) => !next.destinations.some((d) => d.slot === slot));
+        if (slot === undefined) break;
+        const d = fromGroup(group, slot, epoch, this.now());
+        next = assign(next, d, false);
+        added.push(d);
+      }
+    }
+    const knownGroups = groups.map((g) => g.id).sort((a, b) => a - b);
+    if (added.length || JSON.stringify(session.knownGroups) !== JSON.stringify(knownGroups)) {
+      if (added.length) {
+        const id = crypto.randomUUID();
+        session.assignmentUndo = { id, destinations: added, expiresAt: this.now() + UNDO_MS };
+        session.notice = {
+          id,
+          kind: 'assignment',
+          message:
+            added.length === 1
+              ? `Assigned ${added[0]!.title || 'Untitled group'} to ${added[0]!.slot}.`
+              : `Assigned ${added.length} new groups to free numbers.`,
+          expiresAt: this.now() + NOTICE_MS,
+        };
+      }
+      await this.repo.saveSession({ ...session, knownGroups });
+    }
     if (JSON.stringify(next) !== JSON.stringify(registry)) await this.repo.save(next);
     return { registry: next, groups, epoch };
   }
-  private async view(capture: boolean): Promise<StateView> {
+  private async view(capture: boolean, source?: CapturedSource): Promise<StateView> {
+    // Capture before state I/O. A keyboard launch can hand off its pre-open source.
+    const tab = capture
+      ? (source ??
+        (await this.browser
+          .activeTab()
+          .then((t) => (t ? { tabId: t.id, windowId: t.windowId, title: t.title } : null))))
+      : null;
     const { registry, groups, epoch } = await this.refresh();
-    const tab = capture ? await this.browser.activeTab() : null;
+    const session = await this.repo.loadSession(epoch, this.now());
     return {
       destinations: registry.destinations.map((d) => resolve(d, groups, epoch, registry.pending)),
-      groups,
+      groups: orderGroups(groups, tab?.windowId ?? null),
+      setupCompleted: registry.setupCompleted,
+      autoAssign: registry.autoAssign,
+      undo: session.lastMove,
+      assignmentUndo: session.assignmentUndo
+        ? { id: session.assignmentUndo.id, expiresAt: session.assignmentUndo.expiresAt }
+        : null,
+      notice: session.notice,
       theme: registry.theme,
-      context: tab ? { tabId: tab.id, windowId: tab.windowId } : null,
+      context: tab ? { tabId: tab.tabId, windowId: tab.windowId } : null,
       tabTitle: tab?.title || '',
       shortcut: await this.browser.shortcut(),
-      version: '1.0.0',
+      version: '1.1.0',
     };
   }
   private async intendedTab(context: TabContext): Promise<BrowserTab> {
-    const tab = await this.browser.tab(context.tabId);
+    let tab: BrowserTab;
+    try {
+      tab = await this.browser.tab(context.tabId);
+    } catch {
+      throw new AppError(
+        'STALE_TAB',
+        'The source tab has closed. Reopen the launcher from a webpage.',
+      );
+    }
     if (tab.windowId !== context.windowId || !tab.active)
       throw new AppError('STALE_TAB', 'The active tab changed. Close and reopen the switcher.');
     if (tab.pinned)
@@ -108,10 +183,16 @@ export class Engine {
     if (!d) throw new AppError('EMPTY', 'This number is unassigned. Choose a group in settings.');
     return d;
   }
-  private async move(context: TabContext, group: LiveGroup): Promise<void> {
+  private async move(context: TabContext, group: LiveGroup): Promise<BrowserTab | null> {
     const tab = await this.intendedTab(context);
     if (!(await this.browser.normalWindow(group.windowId)))
       throw new AppError('WINDOW', 'The destination window is no longer available.');
+    if (tab.groupId === group.id && tab.windowId === group.windowId) {
+      if (group.collapsed) await this.browser.updateGroup(group.id, { collapsed: false });
+      await this.browser.activate(tab.id, group.windowId);
+      return null;
+    }
+    await clearMoveUndo(this.repo, await this.browser.epoch(), this.now());
     // Chromium cannot keep the current page visible inside a collapsed group.
     // Expand deliberately, and leave the user's title and colour untouched.
     if (tab.windowId !== group.windowId) await this.browser.move(tab.id, group.windowId);
@@ -124,16 +205,84 @@ export class Engine {
         'The browser did not place the tab in the destination. Check its location before retrying.',
       );
     await this.browser.activate(tab.id, group.windowId);
+    return tab;
   }
-  private async execute(command: Command): Promise<Result> {
+  private async execute(command: Command, source?: CapturedSource): Promise<Result> {
     if (command.type === 'reset') {
       await this.repo.reset();
       return { ok: true, state: await this.view(false) };
     }
     if (command.type === 'state')
-      return { ok: true, state: await this.view(command.capture === true) };
+      return { ok: true, state: await this.view(command.capture === true, source) };
     if (command.type === 'sessions') return { ok: true, sessions: await this.browser.sessions() };
     const { registry, groups, epoch } = await this.refresh();
+    if (command.type === 'undo') {
+      await undoMove(this.repo, this.browser, command.id, epoch, this.now());
+      return { ok: true, outcome: 'Move undone.', state: await this.view(false) };
+    }
+    if (command.type === 'undo-assignment' || command.type === 'dismiss-notice') {
+      const session = await this.repo.loadSession(epoch, this.now());
+      if (command.type === 'undo-assignment') {
+        const undo = session.assignmentUndo;
+        if (!undo || undo.id !== command.id)
+          throw new AppError(
+            'UNDO_EXPIRED',
+            'This automatic assignment can no longer be undone. Edit its number in settings.',
+          );
+        if (
+          !undo.destinations.every((original) =>
+            registry.destinations.some(
+              (d) =>
+                d.id === original.id &&
+                d.slot === original.slot &&
+                d.binding?.epoch === original.binding?.epoch &&
+                d.binding?.groupId === original.binding?.groupId,
+            ),
+          )
+        )
+          throw new AppError(
+            'UNDO_CHANGED',
+            'These assignments changed. Edit them in settings instead.',
+          );
+        await this.repo.save({
+          ...registry,
+          destinations: registry.destinations.filter(
+            (d) => !undo.destinations.some((original) => original.id === d.id),
+          ),
+        });
+        session.assignmentUndo = null;
+      }
+      if (session.notice?.id === command.id) session.notice = null;
+      await this.repo.saveSession(session);
+      return { ok: true, state: await this.view(false) };
+    }
+    if (command.type === 'setup') {
+      if (registry.setupCompleted || registry.destinations.length)
+        throw new AppError(
+          'SETUP',
+          'Setup is already complete. Change individual numbers in settings.',
+        );
+      validateProposal(command.assignments, groups);
+      const destinations = command.assignments.map((a) =>
+        fromGroup(
+          groups.find((g) => g.id === a.groupId)!,
+          a.slot,
+          epoch,
+          this.now(),
+        ),
+      );
+      await this.repo.save({
+        ...registry,
+        destinations,
+        setupCompleted: true,
+        autoAssign: command.autoAssign,
+      });
+      return { ok: true, state: await this.view(false) };
+    }
+    if (command.type === 'auto-assign') {
+      await this.repo.save({ ...registry, autoAssign: command.enabled });
+      return { ok: true };
+    }
     if (command.type === 'theme') {
       await this.repo.save({ ...registry, theme: command.theme });
       return { ok: true };
@@ -153,7 +302,7 @@ export class Engine {
       };
       if (previous && !command.replace)
         throw new AppError('CONFLICT', 'Confirm replacing this assignment first.');
-      let next = assign(registry, d, command.replace);
+      let next = { ...assign(registry, d, command.replace), setupCompleted: true };
       if (next.pending?.destinationId === d.id) next = { ...next, pending: null };
       await this.repo.save(next);
     } else if (command.type === 'transfer') {
@@ -169,15 +318,25 @@ export class Engine {
       const d = this.destination(registry, command.slot);
       const view = resolve(d, groups, epoch, registry.pending);
       if (!view.group)
-        throw new AppError(
-          view.interrupted ? 'INTERRUPTED' : view.state.toUpperCase(),
-          view.interrupted
-            ? 'A recovery was interrupted. Bind the resulting group in settings before trying again.'
-            : view.state === 'ambiguous'
-              ? 'This destination needs confirmation. Choose its group in settings.'
-              : 'This destination is missing. Recreate it or recover a closed tab.',
+        return this.recover(
+          { type: 'recover', slot: command.slot, context: command.context },
+          registry,
+          groups,
+          epoch,
         );
-      await this.move(command.context, view.group);
+      const before = await this.move(command.context, view.group);
+      const notice = before
+        ? await rememberMove(
+            this.repo,
+            this.browser,
+            before,
+            d,
+            epoch,
+            this.now(),
+            `Moved to ${d.title || 'Untitled group'}.`,
+          )
+        : undefined;
+      return { ok: true, ...(notice ? { notice } : {}), state: await this.view(false) };
     } else if (command.type === 'recover') {
       return await this.recover(command, registry, groups, epoch);
     }
@@ -192,10 +351,22 @@ export class Engine {
     const d = this.destination(registry, command.slot);
     const view = resolve(d, groups, epoch, registry.pending);
     if (view.group) {
-      if (command.context) await this.move(command.context, view.group);
+      const before = command.context ? await this.move(command.context, view.group) : null;
+      const notice = before
+        ? await rememberMove(
+            this.repo,
+            this.browser,
+            before,
+            d,
+            epoch,
+            this.now(),
+            `Moved to ${d.title || 'Untitled group'}.`,
+          )
+        : undefined;
       return {
         ok: true,
         outcome: 'The original live group was already available.',
+        ...(notice ? { notice } : {}),
         state: await this.view(false),
       };
     }
@@ -210,6 +381,7 @@ export class Engine {
         'A similar group is already open. Resolve this destination in settings before recreating it.',
       );
     let current = command.context ? await this.intendedTab(command.context) : null;
+    const original = current ? { ...current } : null;
     if (
       command.sessionId &&
       !(await this.browser.sessions()).some((s) => s.sessionId === command.sessionId)
@@ -227,6 +399,7 @@ export class Engine {
         createdGroupId: null,
       },
     };
+    if (original) await clearMoveUndo(this.repo, epoch, this.now());
     await this.repo.save(next);
     const restored = command.sessionId ? await this.browser.restoreTab(command.sessionId) : null;
     if (
@@ -281,8 +454,20 @@ export class Engine {
     );
     await this.repo.save({ ...next, pending: null });
     await this.browser.activate(current.id, group.windowId);
+    const notice = original
+      ? await rememberMove(
+          this.repo,
+          this.browser,
+          original,
+          d,
+          epoch,
+          this.now(),
+          `Recreated ${d.title || 'Untitled group'}. Previous tabs were not restored${restored ? ' except your selected tab' : ''}.`,
+        )
+      : undefined;
     return {
       ok: true,
+      ...(notice ? { notice } : {}),
       outcome: restored
         ? 'Destination recreated with one recovered tab. Other previous tabs were not restored.'
         : 'Destination recreated. Previous tabs were not restored.',

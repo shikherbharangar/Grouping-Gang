@@ -280,3 +280,14 @@ details p {
     display: none;
   }
 }
+
+.auto-setting {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0 8px;
+  font-size: 13px;
+}
+.auto-setting input {
+  accent-color: var(--accent);
+}

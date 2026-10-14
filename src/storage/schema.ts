@@ -3,10 +3,12 @@ import type { Binding, Destination, Registry, Theme } from '../shared/types';
 import { isSlot } from '../domain/assignment';
 import { AppError } from '../domain/errors';
 export const emptyRegistry = (): Registry => ({
-  version: 2,
+  version: 3,
   destinations: [],
   theme: 'system',
   pending: null,
+  setupCompleted: false,
+  autoAssign: true,
 });
 export function object(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -46,13 +48,18 @@ export function parseRegistry(value: unknown): Registry {
   if (value === undefined) return emptyRegistry();
   // Version 1 had the same assignment shape, but no interrupted-recovery journal.
   if (object(value) && value.version === 1) value = { ...value, version: 2, pending: null };
+  // Upgrades keep every number and skip setup, even for an intentionally empty registry.
+  if (object(value) && value.version === 2)
+    value = { ...value, version: 3, setupCompleted: true, autoAssign: false };
   if (
     !object(value) ||
-    value.version !== 2 ||
+    value.version !== 3 ||
     !Array.isArray(value.destinations) ||
     value.destinations.length > 10 ||
     !value.destinations.every(destination) ||
-    !isTheme(value.theme)
+    !isTheme(value.theme) ||
+    typeof value.setupCompleted !== 'boolean' ||
+    typeof value.autoAssign !== 'boolean'
   )
     throw new AppError(
       'STORAGE',

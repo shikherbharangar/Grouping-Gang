@@ -18,6 +18,8 @@ async function refresh(): Promise<void> {
 }
 function render(): void {
   if (!state) return;
+  required<HTMLInputElement>('#auto-assign').checked = state.autoAssign;
+  required('#version').textContent = `v${state.version}`;
   const list = required('#assignments');
   const focus =
     document.activeElement instanceof HTMLElement ? document.activeElement.dataset.edit : undefined;
@@ -219,7 +221,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((but
     const theme = button.dataset.themeChoice as Theme;
     void send({ type: 'theme', theme })
       .then(() => {
-        applyTheme(theme);
+        applyTheme(theme, true);
         if (state) state.theme = theme;
         render();
       })
@@ -238,4 +240,19 @@ void initializeTheme()
 
 onBrowserChange(() => {
   void refresh().catch((error) => notify(errorMessage(error), true));
+});
+
+required<HTMLInputElement>('#auto-assign').addEventListener('change', (event) => {
+  const enabled = (event.currentTarget as HTMLInputElement).checked;
+  void send({ type: 'auto-assign', enabled })
+    .then(() => {
+      if (state) state.autoAssign = enabled;
+      notify(
+        enabled ? 'New groups will receive the next free number.' : 'Automatic assignment is off.',
+      );
+    })
+    .catch((error) => {
+      if (state) required<HTMLInputElement>('#auto-assign').checked = state.autoAssign;
+      notify(errorMessage(error), true);
+    });
 });

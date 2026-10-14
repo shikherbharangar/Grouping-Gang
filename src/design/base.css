@@ -286,3 +286,14 @@ kbd,
     scroll-behavior: auto !important;
   }
 }
+
+/* Manual appearance changes animate colour briefly; initial theme resolution does not. */
+.theme-transition,
+.theme-transition body,
+.theme-transition button,
+.theme-transition input {
+  transition:
+    background-color 150ms var(--ease),
+    color 150ms var(--ease),
+    border-color 150ms var(--ease);
+}

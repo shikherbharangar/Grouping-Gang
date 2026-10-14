@@ -35,10 +35,12 @@ export interface PendingRecovery {
   createdGroupId: number | null;
 }
 export interface Registry {
-  version: 2;
+  version: 3;
   destinations: Destination[];
   theme: Theme;
   pending: PendingRecovery | null;
+  setupCompleted: boolean;
+  autoAssign: boolean;
 }
 export interface LiveGroup {
   id: number;
@@ -47,15 +49,20 @@ export interface LiveGroup {
   color: Color;
   collapsed: boolean;
   tabIds: number[];
+  firstIndex: number;
 }
 export interface TabContext {
   tabId: number;
   windowId: number;
 }
+export interface CapturedSource extends TabContext {
+  title: string;
+}
 export interface BrowserTab {
   id: number;
   windowId: number;
   groupId: number;
+  index: number;
   active: boolean;
   pinned: boolean;
   incognito: boolean;
@@ -68,6 +75,37 @@ export interface DestinationView extends Destination {
   candidates: number[];
   interrupted: boolean;
 }
+export interface MoveUndo {
+  id: string;
+  epoch: string;
+  tabId: number;
+  fromWindowId: number;
+  fromIndex: number;
+  fromGroupId: number;
+  toWindowId: number;
+  toGroupId: number;
+  destinationId: string;
+  createdAt: number;
+  expiresAt: number;
+}
+export interface AssignmentUndo {
+  id: string;
+  destinations: Destination[];
+  expiresAt: number;
+}
+export interface Notice {
+  id: string;
+  kind: 'move' | 'assignment';
+  message: string;
+  expiresAt: number;
+}
+export interface SessionState {
+  epoch: string;
+  knownGroups: number[] | null;
+  lastMove: MoveUndo | null;
+  assignmentUndo: AssignmentUndo | null;
+  notice: Notice | null;
+}
 export interface StateView {
   destinations: DestinationView[];
   groups: LiveGroup[];
@@ -76,14 +114,28 @@ export interface StateView {
   tabTitle: string;
   shortcut: string;
   version: string;
+  setupCompleted: boolean;
+  autoAssign: boolean;
+  undo: MoveUndo | null;
+  assignmentUndo: { id: string; expiresAt: number } | null;
+  notice: Notice | null;
 }
 export interface ClosedTab {
   sessionId: string;
   title: string;
   lastModified: number;
 }
+export interface ProposedAssignment {
+  slot: Slot;
+  groupId: number;
+}
 export type Command =
   | { type: 'state'; capture?: boolean }
+  | { type: 'setup'; assignments: ProposedAssignment[]; autoAssign: boolean }
+  | { type: 'auto-assign'; enabled: boolean }
+  | { type: 'undo'; id: string }
+  | { type: 'undo-assignment'; id: string }
+  | { type: 'dismiss-notice'; id: string }
   | { type: 'move'; slot: Slot; context: TabContext }
   | { type: 'assign'; slot: Slot; groupId: number; replace: boolean }
   | { type: 'transfer'; from: Slot; to: Slot }
@@ -93,5 +145,5 @@ export type Command =
   | { type: 'theme'; theme: Theme }
   | { type: 'reset' };
 export type Result =
-  | { ok: true; state?: StateView; sessions?: ClosedTab[]; outcome?: string }
+  | { ok: true; state?: StateView; sessions?: ClosedTab[]; outcome?: string; notice?: Notice }
   | { ok: false; code: string; message: string };

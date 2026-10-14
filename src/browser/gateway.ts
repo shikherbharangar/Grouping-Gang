@@ -6,7 +6,8 @@ export interface BrowserGateway {
   activeTab(): Promise<BrowserTab | null>;
   tab(id: number): Promise<BrowserTab>;
   normalWindow(id: number): Promise<boolean>;
-  move(id: number, windowId: number): Promise<void>;
+  move(id: number, windowId: number, index?: number): Promise<void>;
+  ungroup(id: number): Promise<void>;
   group(tabIds: number[], groupId?: number): Promise<number>;
   updateGroup(
     id: number,
@@ -25,6 +26,7 @@ function mapTab(tab: chrome.tabs.Tab): BrowserTab {
     id: tab.id,
     windowId: tab.windowId,
     groupId: tab.groupId,
+    index: tab.index,
     active: tab.active,
     pinned: tab.pinned,
     incognito: tab.incognito,
@@ -55,6 +57,7 @@ export class ChromeBrowser implements BrowserGateway {
         title: g.title || '',
         color: g.color,
         collapsed: g.collapsed,
+        firstIndex: Math.min(...tabs.filter((t) => t.groupId === g.id).map((t) => t.index)),
         tabIds: tabs
           .filter((t) => t.groupId === g.id && t.id !== undefined)
           .map((t) => t.id as number)
@@ -72,8 +75,11 @@ export class ChromeBrowser implements BrowserGateway {
     const w = await chrome.windows.get(id);
     return w.type === 'normal' && !w.incognito;
   }
-  async move(id: number, windowId: number): Promise<void> {
-    await chrome.tabs.move(id, { windowId, index: -1 });
+  async move(id: number, windowId: number, index = -1): Promise<void> {
+    await chrome.tabs.move(id, { windowId, index });
+  }
+  async ungroup(id: number): Promise<void> {
+    await chrome.tabs.ungroup(id);
   }
   async group(tabIds: number[], groupId?: number): Promise<number> {
     const [first, ...rest] = tabIds;
@@ -126,6 +132,10 @@ export class ChromeBrowser implements BrowserGateway {
   }
   async shortcut(): Promise<string> {
     const commands = await chrome.commands.getAll();
-    return commands.find((c) => c.name === '_execute_action')?.shortcut || '';
+    return (
+      commands.find((c) => c.name === 'open-launcher' && c.shortcut)?.shortcut ||
+      commands.find((c) => c.name === '_execute_action')?.shortcut ||
+      ''
+    );
   }
 }
